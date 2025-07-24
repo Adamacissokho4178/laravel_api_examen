@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::create('classes', function (Blueprint $table) {
             $table->id();
+            $table->string('nom'); // ex : 6e, 4e, Terminale
+            $table->string('niveau')->nullable(); // ex : Collège, Lycée
             $table->timestamps();
         });
     }
