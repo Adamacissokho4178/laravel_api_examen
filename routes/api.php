@@ -13,3 +13,6 @@ Route::apiResource('categories', CategorieController::class);
 Route::apiResource('produits', ProduitController::class);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/eleves', [EleveController::class, 'store']);
+});
