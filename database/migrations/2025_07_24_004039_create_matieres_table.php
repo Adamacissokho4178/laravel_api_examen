@@ -13,6 +13,9 @@ return new class extends Migration
     {
         Schema::create('matieres', function (Blueprint $table) {
             $table->id();
+            $table->string('nom');
+            $table->string('niveau');
+            $table->integer('coefficient')->default(1);
             $table->timestamps();
         });
     }
