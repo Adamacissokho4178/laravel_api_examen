@@ -19,9 +19,15 @@ Route::apiResource('categories', CategorieController::class);
 Route::apiResource('produits', ProduitController::class);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+<<<<<<< HEAD
 Route::apiResource('enseignants', EnseignantController::class);
 Route::apiResource('matieres', MatiereController::class);
 Route::apiResource('classes', ClasseController::class);
 Route::apiResource('eleves', EleveController::class);
 Route::apiResource('notes', NoteController::class);
 Route::apiResource('affectations', AffectationController::class);
+=======
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/eleves', [EleveController::class, 'store']);
+});
+>>>>>>> origin/MIRAL
