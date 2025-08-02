@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\CategorieController;
 use App\Http\Controllers\API\ProduitController;
 
-
-Route::get('', function () {
-    return "TEst";
+// Routes web pour l'interface utilisateur (si nécessaire)
+Route::get('/', function () {
+    return view('welcome');
 });
