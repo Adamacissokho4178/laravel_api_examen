@@ -11,7 +11,7 @@ class Eleve extends Model
 
     protected $table = 'eleves';
     protected $fillable = [
-        'prenom', 'nom', 'email', 'date_naissance', 'classe_id', 'chemin_document', 'utilisateur_id'
+        'prenom', 'nom', 'email', 'date_naissance', 'classe_id', 'chemin_document', 'utilisateur_id','identifiant'
     ];
 
     public function classe()
