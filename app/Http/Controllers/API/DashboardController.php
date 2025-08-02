@@ -9,6 +9,7 @@ use App\Models\Enseignant;
 use App\Models\Matiere;
 use App\Models\Note;
 use App\Models\User;
+use App\Models\Affectation;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -292,6 +293,116 @@ class DashboardController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des statistiques par période',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get affectations statistics.
+     */
+    public function getAffectationsStats(): JsonResponse
+    {
+        try {
+            $stats = [
+                'total_affectations' => Affectation::count(),
+                'affectations_actives' => Affectation::where('actif', true)->count(),
+                'affectations_par_enseignant' => Affectation::with('enseignant.utilisateur')
+                    ->select('enseignant_id', DB::raw('count(*) as total'))
+                    ->groupBy('enseignant_id')
+                    ->get(),
+                'affectations_par_classe' => Affectation::with('classe')
+                    ->select('classe_id', DB::raw('count(*) as total'))
+                    ->groupBy('classe_id')
+                    ->get(),
+                'affectations_par_matiere' => Affectation::with('matiere')
+                    ->select('matiere_id', DB::raw('count(*) as total'))
+                    ->groupBy('matiere_id')
+                    ->get(),
+                'dernieres_affectations' => Affectation::with(['enseignant.utilisateur', 'matiere', 'classe'])
+                    ->orderBy('created_at', 'desc')
+                    ->limit(10)
+                    ->get(),
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $stats,
+                'message' => 'Statistiques des affectations récupérées avec succès'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des statistiques des affectations',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get teacher-specific statistics.
+     */
+    public function getTeacherStats(int $enseignantId): JsonResponse
+    {
+        try {
+            $enseignant = Enseignant::with('utilisateur')->find($enseignantId);
+            if (!$enseignant) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Enseignant non trouvé'
+                ], 404);
+            }
+
+            $affectations = Affectation::where('enseignant_id', $enseignantId)
+                ->with(['matiere', 'classe'])
+                ->get();
+
+            $notes = Note::where('enseignant_id', $enseignantId)
+                ->with(['eleve.classe', 'matiere'])
+                ->get();
+
+            $stats = [
+                'enseignant' => [
+                    'id' => $enseignant->id,
+                    'nom' => $enseignant->utilisateur->name,
+                    'specialite' => $enseignant->specialite,
+                ],
+                'affectations' => [
+                    'total' => $affectations->count(),
+                    'classes_enseignees' => $affectations->pluck('classe.nom')->unique()->values(),
+                    'matieres_enseignees' => $affectations->pluck('matiere.nom')->unique()->values(),
+                ],
+                'notes' => [
+                    'total_saisies' => $notes->count(),
+                    'moyenne_generale' => $notes->count() > 0 ? round($notes->avg('note'), 2) : 0,
+                    'notes_par_periode' => $notes->groupBy('periode')->map(function ($notesPeriode) {
+                        return [
+                            'nombre' => $notesPeriode->count(),
+                            'moyenne' => round($notesPeriode->avg('note'), 2),
+                        ];
+                    }),
+                    'notes_par_matiere' => $notes->groupBy('matiere.nom')->map(function ($notesMatiere) {
+                        return [
+                            'nombre' => $notesMatiere->count(),
+                            'moyenne' => round($notesMatiere->avg('note'), 2),
+                        ];
+                    }),
+                ],
+                'dernieres_activites' => [
+                    'dernieres_notes' => $notes->sortByDesc('created_at')->take(5),
+                    'dernieres_affectations' => $affectations->sortByDesc('created_at')->take(5),
+                ],
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $stats,
+                'message' => 'Statistiques de l\'enseignant récupérées avec succès'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des statistiques de l\'enseignant',
                 'error' => $e->getMessage()
             ], 500);
         }
