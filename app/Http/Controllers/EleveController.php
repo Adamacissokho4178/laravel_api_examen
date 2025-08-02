@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\API;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -25,10 +25,10 @@ class EleveController extends Controller
         // 1. Upload fichier justificatif
         $chemin = $request->file('justificatif')->store('justificatifs', 'public');
 
-        // 2. Génération d’un mot de passe aléatoire
+        // 2. Génération d'un mot de passe aléatoire
         $password = Str::random(8);
 
-        // 3. Création de l’utilisateur lié
+        // 3. Création de l'utilisateur lié
         $user = User::create([
             'name' => $request->prenom . ' ' . $request->nom,
             'email' => $request->email,
@@ -36,7 +36,7 @@ class EleveController extends Controller
             'role' => 'eleve',
         ]);
 
-        // 4. Création de l’élève
+        // 4. Création de l'élève
         $eleve = Eleve::create([
             'prenom' => $request->prenom,
             'nom' => $request->nom,
