@@ -5,10 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\EnseignantRequest;
 use App\Models\Enseignant;
-use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Hash;
 
 class EnseignantController extends Controller
 {
@@ -18,7 +15,7 @@ class EnseignantController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $enseignants = Enseignant::with('utilisateur')->get();
+            $enseignants = Enseignant::all();
             return response()->json([
                 'success' => true,
                 'data' => $enseignants,
@@ -39,22 +36,7 @@ class EnseignantController extends Controller
     public function store(EnseignantRequest $request): JsonResponse
     {
         try {
-            // Créer l'utilisateur
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'role' => 'enseignant'
-            ]);
-
-            // Créer l'enseignant
-            $enseignant = Enseignant::create([
-                'utilisateur_id' => $user->id,
-                'specialite' => $request->specialite
-            ]);
-
-            // Charger la relation pour la réponse
-            $enseignant->load('utilisateur');
+            $enseignant = Enseignant::create($request->validated());
             
             return response()->json([
                 'success' => true,
@@ -76,7 +58,7 @@ class EnseignantController extends Controller
     public function show(string $id): JsonResponse
     {
         try {
-            $enseignant = Enseignant::with('utilisateur')->findOrFail($id);
+            $enseignant = Enseignant::findOrFail($id);
             
             return response()->json([
                 'success' => true,
@@ -104,21 +86,7 @@ class EnseignantController extends Controller
     {
         try {
             $enseignant = Enseignant::findOrFail($id);
-            
-            // Mettre à jour l'utilisateur
-            $enseignant->utilisateur->update([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password)
-            ]);
-
-            // Mettre à jour l'enseignant
-            $enseignant->update([
-                'specialite' => $request->specialite
-            ]);
-
-            // Charger la relation pour la réponse
-            $enseignant->load('utilisateur');
+            $enseignant->update($request->validated());
             
             return response()->json([
                 'success' => true,
@@ -146,9 +114,7 @@ class EnseignantController extends Controller
     {
         try {
             $enseignant = Enseignant::findOrFail($id);
-            
-            // Supprimer l'utilisateur (cascade automatique)
-            $enseignant->utilisateur->delete();
+            $enseignant->delete();
             
             return response()->json([
                 'success' => true,
@@ -163,6 +129,28 @@ class EnseignantController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la suppression de l\'enseignant',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Rechercher des enseignants par spécialité
+     */
+    public function searchBySpecialite(string $specialite): JsonResponse
+    {
+        try {
+            $enseignants = Enseignant::where('specialite', 'like', "%{$specialite}%")->get();
+            
+            return response()->json([
+                'success' => true,
+                'data' => $enseignants,
+                'message' => 'Recherche effectuée avec succès'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la recherche',
                 'error' => $e->getMessage()
             ], 500);
         }

@@ -218,53 +218,26 @@ class NoteController extends Controller
     }
 
     /**
-     * Calculate moyenne for an eleve.
+     * Calculer la moyenne d'un élève
      */
     public function calculerMoyenne(string $eleveId, string $periode = null): JsonResponse
     {
         try {
-            $query = Note::where('eleve_id', $eleveId);
-            
-            if ($periode) {
-                $query->where('periode', $periode);
-            }
-            
-            $notes = $query->with('matiere')->get();
-            
-            if ($notes->isEmpty()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Aucune note trouvée pour cet élève'
-                ], 404);
-            }
-            
-            // Calculer la moyenne pondérée
-            $totalPoints = 0;
-            $totalCoefficients = 0;
-            
-            foreach ($notes as $note) {
-                $coefficient = $note->coefficient ?? $note->matiere->coefficient ?? 1;
-                $totalPoints += $note->note * $coefficient;
-                $totalCoefficients += $coefficient;
-            }
-            
-            $moyenne = $totalCoefficients > 0 ? round($totalPoints / $totalCoefficients, 2) : 0;
-            
-            // Déterminer la mention
-            $mention = $this->determinerMention($moyenne);
+            $resultat = Note::calculerMoyenneEleve($eleveId, $periode);
+            $rang = Note::calculerRangEleve($eleveId, $periode);
             
             return response()->json([
                 'success' => true,
                 'data' => [
                     'eleve_id' => $eleveId,
                     'periode' => $periode,
-                    'moyenne' => $moyenne,
-                    'mention' => $mention,
-                    'notes' => $notes,
-                    'total_points' => $totalPoints,
-                    'total_coefficients' => $totalCoefficients
+                    'moyenne' => $resultat['moyenne'],
+                    'mention' => $resultat['mention'],
+                    'rang' => $rang,
+                    'total_coefficient' => $resultat['total_coefficient'],
+                    'notes' => $resultat['notes']
                 ],
-                'message' => 'Moyenne calculée avec succès'
+                'message' => 'Calcul de moyenne effectué avec succès'
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -276,20 +249,50 @@ class NoteController extends Controller
     }
 
     /**
-     * Determine mention based on moyenne.
+     * Obtenir les statistiques des notes
      */
-    private function determinerMention(float $moyenne): string
+    public function getStatistiques(string $periode = null): JsonResponse
     {
-        if ($moyenne >= 16) {
-            return 'Très Bien';
-        } elseif ($moyenne >= 14) {
-            return 'Bien';
-        } elseif ($moyenne >= 12) {
-            return 'Assez Bien';
-        } elseif ($moyenne >= 10) {
-            return 'Passable';
-        } else {
-            return 'Insuffisant';
+        try {
+            $stats = Note::getStatistiques($periode);
+            
+            return response()->json([
+                'success' => true,
+                'data' => $stats,
+                'message' => 'Statistiques récupérées avec succès'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des statistiques',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Calculer le rang d'un élève
+     */
+    public function calculerRang(string $eleveId, string $periode = null): JsonResponse
+    {
+        try {
+            $rang = Note::calculerRangEleve($eleveId, $periode);
+            
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'eleve_id' => $eleveId,
+                    'periode' => $periode,
+                    'rang' => $rang
+                ],
+                'message' => 'Rang calculé avec succès'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du calcul du rang',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }
