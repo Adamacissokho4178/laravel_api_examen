@@ -14,13 +14,22 @@ Route::get('/ping', function () {
     return response()->json(['message' => 'pong']);
 });
 
-Route::apiResource('categories', CategorieController::class);
-Route::apiResource('produits', ProduitController::class);
+// Auth
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/eleves', [EleveController::class, 'store']);
-Route::post('/affectations', [AffectationController::class, 'store']);
+
+// Produits / Catégories
+Route::apiResource('categories', CategorieController::class);
+Route::apiResource('produits', ProduitController::class);
+
+// Routes publiques
 Route::get('/enseignants', [EnseignantController::class, 'index']);
 Route::get('/matieres', [MatiereController::class, 'index']);
 Route::get('/classes', [ClasseController::class, 'index']);
 Route::get('/eleves/{id}/document', [EleveController::class, 'downloadDocument']);
+
+// Routes protégées
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/eleves', [EleveController::class, 'store']);
+    Route::post('/affectations', [AffectationController::class, 'store']);
+});
