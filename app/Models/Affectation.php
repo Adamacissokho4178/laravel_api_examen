@@ -11,7 +11,7 @@ class Affectation extends Model
 
     protected $table = 'affectations';
     protected $fillable = [
-        'enseignant_id', 'matiere_id', 'classe_id'
+        'enseignant_id', 'matiere_id', 'classe_id', 'annee_scolaire', 'actif'
     ];
 
     public function enseignant()
