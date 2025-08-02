@@ -15,6 +15,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api([
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
+        
+        // Activer CORS pour toutes les routes
+        $middleware->web([
+            \Illuminate\Http\Middleware\HandleCors::class,
+        ]);
+
+        // Enregistrer le middleware de vérification des rôles
+        $middleware->alias([
+            'role' => \App\Http\Middleware\CheckRole::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
