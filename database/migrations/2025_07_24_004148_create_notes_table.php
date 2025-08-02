@@ -13,7 +13,21 @@ return new class extends Migration
     {
         Schema::create('notes', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('eleve_id');
+            $table->unsignedBigInteger('matiere_id');
+            $table->unsignedBigInteger('enseignant_id');
+            $table->string('periode'); // trimestre, semestre, etc.
+            $table->decimal('note', 4, 2); // note sur 20 avec 2 décimales
+            $table->text('appreciation')->nullable(); // commentaire de l'enseignant
+            $table->decimal('coefficient', 3, 1)->default(1.0); // coefficient de la matière
+            $table->string('type_evaluation')->default('controle'); // controle, examen, etc.
+            $table->date('date_evaluation');
             $table->timestamps();
+
+            // Clés étrangères
+            $table->foreign('eleve_id')->references('id')->on('eleves')->onDelete('cascade');
+            $table->foreign('matiere_id')->references('id')->on('matieres')->onDelete('cascade');
+            $table->foreign('enseignant_id')->references('id')->on('enseignants')->onDelete('cascade');
         });
     }
 

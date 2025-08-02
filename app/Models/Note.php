@@ -11,7 +11,8 @@ class Note extends Model
 
     protected $table = 'notes';
     protected $fillable = [
-        'eleve_id', 'matiere_id', 'enseignant_id', 'periode', 'note', 'appreciation'
+        'eleve_id', 'matiere_id', 'enseignant_id', 'periode', 'note', 'appreciation',
+        'coefficient', 'type_evaluation', 'date_evaluation'
     ];
 
     public function eleve()
