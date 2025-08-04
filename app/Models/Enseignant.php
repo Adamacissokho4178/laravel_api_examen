@@ -10,7 +10,7 @@ class Enseignant extends Model
     use HasFactory;
 
     protected $table = 'enseignants';
-    protected $fillable = ['utilisateur_id', 'specialite'];
+    protected $fillable = ['nom', 'prenom', 'email', 'telephone', 'specialite'];
 
     public function utilisateur()
     {
