@@ -1,67 +1,298 @@
 <?php
 
-use App\Http\Controllers\API\CategorieController;
-use App\Http\Controllers\API\ProduitController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\API\AuthController;
-use App\Http\Controllers\API\EnseignantController;
-use App\Http\Controllers\API\MatiereController;
-use App\Http\Controllers\EleveController;
-use App\Http\Controllers\API\NoteController;
-use App\Http\Controllers\API\AffectationController;
-use App\Http\Controllers\API\DashboardController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\EnseignantController;
+use App\Http\Controllers\MatiereController;
+use App\Http\Controllers\NoteController;
+use App\Models\Matiere;
+use App\Models\Enseignant;
+use App\Models\Classe;
+use App\Models\Affectation;
 
-Route::get('/ping', function () {
-    return response()->json(['message' => 'pong']);
-});
-
-Route::apiResource('categories', CategorieController::class);
-Route::apiResource('produits', ProduitController::class);
-// Routes d'authentification (publiques)
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-
-// Routes protégées par authentification
-Route::middleware('auth:sanctum')->group(function () {
-    // Route pour obtenir les infos de l'utilisateur connecté
-    Route::get('/me', [AuthController::class, 'me']);
-    Route::post('/logout', [AuthController::class, 'logout']);
-
-    // Routes pour Admin seulement
-    Route::middleware('role:admin')->group(function () {
-        Route::apiResource('enseignants', EnseignantController::class);
-        Route::get('/enseignants/specialite/{specialite}', [EnseignantController::class, 'searchBySpecialite']);
-        
-        Route::apiResource('matieres', MatiereController::class);
-        Route::get('/matieres/niveau/{niveau}', [MatiereController::class, 'getByNiveau']);
-    });
-
-    // Routes pour Admin et Enseignant
-    Route::middleware('role:admin,enseignant')->group(function () {
-        Route::apiResource('notes', NoteController::class);
-        Route::get('/notes/eleve/{eleveId}', [NoteController::class, 'getByEleve']);
-        Route::get('/notes/matiere/{matiereId}', [NoteController::class, 'getByMatiere']);
-        Route::get('/notes/periode/{periode}', [NoteController::class, 'getByPeriode']);
-        
-        // Routes de calculs et statistiques
-        Route::get('/notes/moyenne/{eleveId}', [NoteController::class, 'calculerMoyenne']);
-        Route::get('/notes/moyenne/{eleveId}/{periode}', [NoteController::class, 'calculerMoyenne']);
-        Route::get('/notes/rang/{eleveId}', [NoteController::class, 'calculerRang']);
-        Route::get('/notes/rang/{eleveId}/{periode}', [NoteController::class, 'calculerRang']);
-        Route::get('/notes/statistiques', [NoteController::class, 'getStatistiques']);
-        Route::get('/notes/statistiques/{periode}', [NoteController::class, 'getStatistiques']);
-    });
-
-    // Routes Dashboard (tous les rôles)
-    Route::get('/dashboard/stats-globales', [DashboardController::class, 'getGlobalStats']);
-    Route::get('/dashboard/stats-academiques', [DashboardController::class, 'getAcademicStats']);
-    Route::get('/dashboard/suivi-notes', [DashboardController::class, 'getNotesTracking']);
-    Route::get('/dashboard/overview', [DashboardController::class, 'getDashboardOverview']);
-    Route::get('/dashboard/stats-periode/{periode}', [DashboardController::class, 'getStatsByPeriod']);
-    Route::get('/dashboard/affectations-stats', [DashboardController::class, 'getAffectationsStats']);
-    Route::get('/dashboard/teacher-stats/{enseignantId}', [DashboardController::class, 'getTeacherStats']);
-});
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "api" middleware group. Make something great!
+|
+*/
 
 // Routes publiques (sans authentification)
-Route::apiResource('affectations', AffectationController::class);
-Route::post('/eleves', [EleveController::class, 'store']);
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);
+
+// Route temporaire pour éviter les erreurs 404 (à supprimer plus tard)
+Route::get('/produits', function () {
+    return response()->json(['message' => 'Route temporaire - à supprimer']);
+});
+
+// Routes pour les matières (utilisant la base de données)
+Route::get('/matieres', function () {
+    return Matiere::all();
+});
+
+Route::get('/matieres/{id}', function ($id) {
+    $matiere = Matiere::find($id);
+    if (!$matiere) {
+        return response()->json(['error' => 'Matière non trouvée'], 404);
+    }
+    return $matiere;
+});
+
+Route::post('/matieres', function (Request $request) {
+    // Validation des données
+    $request->validate([
+        'nom' => 'required|string|max:100',
+        'niveau' => 'required|string',
+        'coefficient' => 'required|numeric|min:0.1|max:10',
+        'description' => 'nullable|string|max:1000'
+    ]);
+
+    // Créer la matière dans la base de données
+    $matiere = Matiere::create($request->all());
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Matière créée avec succès',
+        'matiere' => $matiere
+    ], 201);
+});
+
+Route::put('/matieres/{id}', function (Request $request, $id) {
+    // Validation des données
+    $request->validate([
+        'nom' => 'required|string|max:100',
+        'niveau' => 'required|string',
+        'coefficient' => 'required|numeric|min:0.1|max:10',
+        'description' => 'nullable|string|max:1000'
+    ]);
+
+    // Trouver et mettre à jour la matière
+    $matiere = Matiere::find($id);
+    if (!$matiere) {
+        return response()->json(['error' => 'Matière non trouvée'], 404);
+    }
+
+    $matiere->update($request->all());
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Matière modifiée avec succès',
+        'matiere' => $matiere
+    ]);
+});
+
+Route::delete('/matieres/{id}', function ($id) {
+    $matiere = Matiere::find($id);
+    if (!$matiere) {
+        return response()->json(['error' => 'Matière non trouvée'], 404);
+    }
+
+    $matiere->delete();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Matière supprimée avec succès',
+        'id' => $id
+    ]);
+});
+
+// Routes pour les enseignants (utilisant la base de données)
+Route::get('/enseignants', function () {
+    return Enseignant::all();
+});
+
+Route::get('/enseignants/{id}', function ($id) {
+    $enseignant = Enseignant::find($id);
+    if (!$enseignant) {
+        return response()->json(['error' => 'Enseignant non trouvé'], 404);
+    }
+    return $enseignant;
+});
+
+Route::post('/enseignants', function (Request $request) {
+    // Validation des données
+    $request->validate([
+        'nom' => 'required|string|max:50',
+        'prenom' => 'required|string|max:50',
+        'email' => 'required|email|unique:enseignants,email',
+        'telephone' => 'nullable|string|max:20',
+        'specialite' => 'required|string|max:100'
+    ]);
+
+    // Créer l'enseignant dans la base de données
+    $enseignant = Enseignant::create($request->all());
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Enseignant créé avec succès',
+        'enseignant' => $enseignant
+    ], 201);
+});
+
+Route::put('/enseignants/{id}', function (Request $request, $id) {
+    // Validation des données
+    $request->validate([
+        'nom' => 'required|string|max:50',
+        'prenom' => 'required|string|max:50',
+        'email' => 'required|email|unique:enseignants,email,' . $id,
+        'telephone' => 'nullable|string|max:20',
+        'specialite' => 'required|string|max:100'
+    ]);
+
+    // Trouver et mettre à jour l'enseignant
+    $enseignant = Enseignant::find($id);
+    if (!$enseignant) {
+        return response()->json(['error' => 'Enseignant non trouvé'], 404);
+    }
+
+    $enseignant->update($request->all());
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Enseignant modifié avec succès',
+        'enseignant' => $enseignant
+    ]);
+});
+
+Route::delete('/enseignants/{id}', function ($id) {
+    $enseignant = Enseignant::find($id);
+    if (!$enseignant) {
+        return response()->json(['error' => 'Enseignant non trouvé'], 404);
+    }
+
+    $enseignant->delete();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Enseignant supprimé avec succès',
+        'id' => $id
+    ]);
+});
+
+// Routes pour les classes (utilisant la base de données)
+Route::get('/classes', function () {
+    return Classe::all();
+});
+
+Route::get('/classes/{id}', function ($id) {
+    $classe = Classe::find($id);
+    if (!$classe) {
+        return response()->json(['error' => 'Classe non trouvée'], 404);
+    }
+    return $classe;
+});
+
+// Routes pour les affectations (utilisant la base de données)
+Route::get('/affectations', function () {
+    return Affectation::with(['enseignant', 'matiere', 'classe'])->get();
+});
+
+Route::get('/affectations/{id}', function ($id) {
+    $affectation = Affectation::with(['enseignant', 'matiere', 'classe'])->find($id);
+    if (!$affectation) {
+        return response()->json(['error' => 'Affectation non trouvée'], 404);
+    }
+    return $affectation;
+});
+
+Route::post('/affectations', function (Request $request) {
+    // Validation des données
+    $request->validate([
+        'enseignant_id' => 'required|exists:enseignants,id',
+        'matiere_id' => 'required|exists:matieres,id',
+        'classe_id' => 'required|exists:classes,id'
+    ]);
+
+    // Vérifier si l'affectation existe déjà
+    $existingAffectation = Affectation::where([
+        'enseignant_id' => $request->enseignant_id,
+        'matiere_id' => $request->matiere_id,
+        'classe_id' => $request->classe_id
+    ])->first();
+
+    if ($existingAffectation) {
+        return response()->json([
+            'error' => 'Cette affectation existe déjà'
+        ], 400);
+    }
+
+    // Créer l'affectation dans la base de données
+    $affectation = Affectation::create($request->all());
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Affectation créée avec succès',
+        'affectation' => $affectation->load(['enseignant', 'matiere', 'classe'])
+    ], 201);
+});
+
+Route::put('/affectations/{id}', function (Request $request, $id) {
+    // Validation des données
+    $request->validate([
+        'enseignant_id' => 'required|exists:enseignants,id',
+        'matiere_id' => 'required|exists:matieres,id',
+        'classe_id' => 'required|exists:classes,id'
+    ]);
+
+    // Trouver et mettre à jour l'affectation
+    $affectation = Affectation::find($id);
+    if (!$affectation) {
+        return response()->json(['error' => 'Affectation non trouvée'], 404);
+    }
+
+    $affectation->update($request->all());
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Affectation modifiée avec succès',
+        'affectation' => $affectation->load(['enseignant', 'matiere', 'classe'])
+    ]);
+});
+
+Route::delete('/affectations/{id}', function ($id) {
+    $affectation = Affectation::find($id);
+    if (!$affectation) {
+        return response()->json(['error' => 'Affectation non trouvée'], 404);
+    }
+
+    $affectation->delete();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Affectation supprimée avec succès',
+        'id' => $id
+    ]);
+});
+
+// Routes protégées (avec authentification Sanctum)
+Route::middleware('auth:sanctum')->group(function () {
+    // Informations utilisateur
+    Route::get('/user', [AuthController::class, 'user']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/refresh', [AuthController::class, 'refresh']);
+
+    // Routes pour les enseignants (commentées temporairement)
+    // Route::apiResource('enseignants', EnseignantController::class);
+    
+    // Routes pour les matières (commentées temporairement)
+    // Route::apiResource('matieres', MatiereController::class);
+    
+    // Routes pour les notes
+    Route::apiResource('notes', NoteController::class);
+    
+    // Routes pour les classes (à créer)
+    Route::apiResource('classes', \App\Http\Controllers\ClasseController::class);
+    
+    // Routes pour les élèves (à créer)
+    Route::apiResource('eleves', \App\Http\Controllers\EleveController::class);
+});
+
+Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+    return $request->user();
+});

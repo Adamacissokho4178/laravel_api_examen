@@ -10,7 +10,7 @@ class Matiere extends Model
     use HasFactory;
 
     protected $table = 'matieres';
-    protected $fillable = ['nom', 'niveau', 'coefficient'];
+    protected $fillable = ['nom', 'niveau', 'coefficient', 'description'];
 
     public function notes()
     {
