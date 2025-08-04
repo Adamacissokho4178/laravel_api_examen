@@ -10,7 +10,16 @@ class Classe extends Model
     use HasFactory;
 
     protected $table = 'classes';
-    protected $fillable = ['nom', 'niveau'];
+    
+    protected $fillable = [
+        'nom',
+        'niveau',
+        'capacite'
+    ];
+
+    protected $casts = [
+        'capacite' => 'integer',
+    ];
 
     public function eleves()
     {
