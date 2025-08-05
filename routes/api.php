@@ -124,17 +124,41 @@ Route::post('/enseignants', function (Request $request) {
         'prenom' => 'required|string|max:50',
         'email' => 'required|email|unique:enseignants,email',
         'telephone' => 'nullable|string|max:20',
-        'specialite' => 'required|string|max:100'
+        'specialite' => 'required|string|max:100',
+        'password' => 'required|string|min:6'
     ]);
 
-    // Créer l'enseignant dans la base de données
-    $enseignant = Enseignant::create($request->all());
+    try {
+        // Créer un compte utilisateur
+        $user = \App\Models\User::create([
+            'nom' => $request->nom,
+            'prenom' => $request->prenom,
+            'email' => $request->email,
+            'password' => bcrypt($request->password),
+            'role' => 'enseignant'
+        ]);
 
-    return response()->json([
-        'success' => true,
-        'message' => 'Enseignant créé avec succès',
-        'enseignant' => $enseignant
-    ], 201);
+        // Créer l'enseignant avec la référence vers l'utilisateur
+        $enseignant = Enseignant::create([
+            'nom' => $request->nom,
+            'prenom' => $request->prenom,
+            'email' => $request->email,
+            'telephone' => $request->telephone,
+            'specialite' => $request->specialite,
+            'utilisateur_id' => $user->id
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Enseignant créé avec succès',
+            'enseignant' => $enseignant
+        ], 201);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la création de l\'enseignant: ' . $e->getMessage()
+        ], 500);
+    }
 });
 
 Route::put('/enseignants/{id}', function (Request $request, $id) {
@@ -147,7 +171,7 @@ Route::put('/enseignants/{id}', function (Request $request, $id) {
         'specialite' => 'required|string|max:100'
     ]);
 
-    // Trouver et mettre à jour l'enseignant
+    
     $enseignant = Enseignant::find($id);
     if (!$enseignant) {
         return response()->json(['error' => 'Enseignant non trouvé'], 404);
@@ -345,20 +369,19 @@ Route::get('/suivi-notes', function (Request $request) {
             // Compter les élèves dans cette classe
             $elevesAttendus = \App\Models\Eleve::where('classe_id', $affectation->classe_id)->count();
             
-            // Compter les notes pour cette affectation
+            // Compter les notes pour cette affectation (via matiere_id et enseignant_id)
             $notesSaisies = \App\Models\Note::where('matiere_id', $affectation->matiere_id)
-                                           ->where('classe_id', $affectation->classe_id)
+                                           ->where('enseignant_id', $affectation->enseignant_id)
                                            ->count();
             
-            // Dernière saisie
             $derniereSaisie = \App\Models\Note::where('matiere_id', $affectation->matiere_id)
-                                             ->where('classe_id', $affectation->classe_id)
+                                             ->where('enseignant_id', $affectation->enseignant_id)
                                              ->max('created_at');
             
-            // Calculer le pourcentage
+           
             $pourcentage = $elevesAttendus > 0 ? round(($notesSaisies / $elevesAttendus) * 100) : 0;
             
-            // Déterminer le statut
+          
             if ($pourcentage == 100) {
                 $statut = 'Terminé';
             } elseif ($pourcentage > 0) {
@@ -508,6 +531,22 @@ Route::get('/eleves-classe/{classe_id}', function ($classe_id) {
     }
 });
 
+// Route pour récupérer les notes existantes d'un enseignant
+Route::get('/notes-existantes', function (Request $request) {
+    try {
+        $notes = Note::where([
+            'matiere_id' => $request->matiere_id,
+            'periode' => $request->periode,
+            'enseignant_id' => $request->enseignant_id
+        ])->select('id', 'eleve_id', 'note', 'appreciation')
+          ->get();
+        
+        return response()->json($notes);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
+
 // Route pour récupérer les données des listes déroulantes
 Route::get('/dropdown-data', function () {
     try {
@@ -522,13 +561,13 @@ Route::get('/dropdown-data', function () {
         return response()->json(['error' => $e->getMessage()], 500);
     }
 });
-
+ Route::get('/user', [AuthController::class, 'user']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/refresh', [AuthController::class, 'refresh']);
 // Routes protégées (avec authentification Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
     // Informations utilisateur
-    Route::get('/user', [AuthController::class, 'user']);
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::post('/refresh', [AuthController::class, 'refresh']);
+   
 
     // Routes pour les enseignants (commentées temporairement)
     // Route::apiResource('enseignants', EnseignantController::class);
@@ -543,9 +582,88 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('classes', \App\Http\Controllers\ClasseController::class);
     
     // Routes pour les élèves (à créer)
-    Route::apiResource('eleves', \App\Http\Controllers\EleveController::class);
+    
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
+});
+Route::apiResource('eleves', \App\Http\Controllers\EleveController::class);
+Route::get('/eleves/{id}/document', [\App\Http\Controllers\EleveController::class, 'downloadDocument']);
+
+// Routes pour les parents
+Route::apiResource('parents', \App\Http\Controllers\ParentController::class);
+ Route::get('/parent/mes-enfants', [\App\Http\Controllers\ParentController::class, 'mesEnfants']);
+    Route::get('/parent/enfant/{eleveId}/bulletin', [\App\Http\Controllers\ParentController::class, 'bulletinEnfant']);
+    Route::get('/parent/enfant/{eleveId}/bulletin/{trimestre}/telecharger', [\App\Http\Controllers\ParentController::class, 'telechargerBulletin']);
+
+// Routes sécurisées pour les parents connectés
+Route::middleware('auth:sanctum')->group(function () {
+   
+});
+
+// Routes pour les calculs de moyennes et statistiques
+Route::get('/calculer-moyenne/{eleveId}', function ($eleveId, Request $request) {
+    try {
+        $periode = $request->get('periode');
+        $resultat = \App\Models\Note::calculerMoyenneEleve($eleveId, $periode);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $resultat,
+            'message' => 'Calcul de moyenne effectué avec succès'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors du calcul de la moyenne',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
+Route::get('/statistiques-classe/{classeId}', function ($classeId, Request $request) {
+    try {
+        $periode = $request->get('periode');
+        
+        // Récupérer tous les élèves de la classe
+        $eleves = \App\Models\Eleve::where('classe_id', $classeId)->get();
+        
+        $totalMoyenne = 0;
+        $nombreEleves = 0;
+        $moyennes = [];
+        
+        foreach ($eleves as $eleve) {
+            $resultat = \App\Models\Note::calculerMoyenneEleve($eleve->id, $periode);
+            if ($resultat['moyenne'] > 0) {
+                $totalMoyenne += $resultat['moyenne'];
+                $nombreEleves++;
+                $moyennes[] = [
+                    'eleve_id' => $eleve->id,
+                    'eleve_nom' => $eleve->nom . ' ' . $eleve->prenom,
+                    'moyenne' => $resultat['moyenne'],
+                    'mention' => $resultat['mention']
+                ];
+            }
+        }
+        
+        $moyenneClasse = $nombreEleves > 0 ? round($totalMoyenne / $nombreEleves, 2) : 0;
+        
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'moyenne_classe' => $moyenneClasse,
+                'nombre_eleves' => $nombreEleves,
+                'periode' => $periode,
+                'moyennes_eleves' => $moyennes
+            ],
+            'message' => 'Statistiques calculées avec succès'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors du calcul des statistiques',
+            'error' => $e->getMessage()
+        ], 500);
+    }
 });

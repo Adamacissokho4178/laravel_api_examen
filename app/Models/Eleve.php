@@ -28,4 +28,18 @@ class Eleve extends Model
     {
         return $this->belongsTo(User::class, 'utilisateur_id');
     }
+
+    // Relation avec les parents
+    public function parents()
+    {
+        return $this->belongsToMany(ParentModel::class, 'parent_eleve', 'eleve_id', 'parent_id')
+                    ->withPivot('relation', 'est_principal')
+                    ->withTimestamps();
+    }
+
+    // Méthode pour obtenir le parent principal
+    public function parentPrincipal()
+    {
+        return $this->parents()->wherePivot('est_principal', true)->first();
+    }
 } 
